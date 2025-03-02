@@ -1,59 +1,78 @@
 import jwt from "jsonwebtoken";
-import { User } from "../types/auth-types";
+import { User } from "../constants/auth-types";
 import { Request, Response, NextFunction } from "express";
-import * as bcrypt from "bcrypt";
+import bcrypt from "bcrypt";
+
+interface UserPayload {
+  id: string;
+  role: string;
+}
 
 declare global {
   namespace Express {
     interface Request {
-      user?: any;
+      user?: UserPayload;
     }
   }
 }
 
-export function createJWT(user: User) {
-  const token: string = jwt.sign(
+export function createJWT(user: User): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET is not defined!");
+  }
+
+  return jwt.sign(
     {
       id: user.id,
       role: user.role,
     },
-    process.env.JWT_SECRET!
+    secret,
+    { expiresIn: "7d" }
   );
-  return token;
 }
-
-export function protect(req: Request, res: Response, next: NextFunction) {
+export function protect(req: Request, res: Response, next: NextFunction): void {
   const bearer = req.headers.authorization;
-  if (!bearer) {
+
+  if (!bearer || !bearer.startsWith("Bearer ")) {
     res.status(401).json({ message: "Not authorized" });
     return;
   }
 
-  const [, token] = bearer.split(" ");
+  const token = bearer.split(" ")[1];
+
   if (!token) {
-    res.status(401).send("Not authorized");
+    res.status(401).json({ message: "Not authorized" });
     return;
   }
+
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    console.error("JWT_SECRET is not defined!");
+    res.status(500).json({ message: "Internal server error" });
+    return;
+  }
+
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET!);
+    const payload = jwt.verify(token, secret) as UserPayload;
     req.user = payload;
-    console.log(payload);
+
+    console.log("Authenticated user:", payload);
     next();
-  } catch (e) {
-    console.error(e);
-    res.status(401);
-    res.send("Not authorized");
+  } catch (error) {
+    console.error("JWT verification failed:", error);
+    res.status(401).json({ message: "Invalid token" });
     return;
   }
 }
 
-export async function hashPassword(p: string): Promise<string> {
-  return (await bcrypt.hash(p, 5)) as string;
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10);
 }
 
 export async function comparePasswords(
-  p: string,
-  hashedP: string
+  password: string,
+  hashedPassword: string
 ): Promise<boolean> {
-  return (await bcrypt.compare(p, hashedP)) as boolean;
+  return bcrypt.compare(password, hashedPassword);
 }

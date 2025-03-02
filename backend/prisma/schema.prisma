@@ -23,9 +23,18 @@ model User {
   followingCount  Int       @default(0)
   followersCount  Int       @default(0)
   sessions        Session[]
+  status          AccountStatus @default(ACTIVE)
+  deactivatedAt   DateTime?
 
   @@map("user")
 }
+
+enum AccountStatus {
+  ACTIVE
+  DEACTIVATED
+  PENDING_DELETION
+}
+
 
 model Session {
   id        String   @id
@@ -40,3 +49,4 @@ model Session {
 
   @@map("session")
 }
+
