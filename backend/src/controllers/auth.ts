@@ -2,21 +2,24 @@ import { Request, Response } from "express";
 import prisma from "../lib/db";
 import { comparePasswords, createJWT, hashPassword } from "../modules/auth";
 import { z } from "zod";
-import { loginSchema, registrationSchema } from "../constants/auth-schema";
+import { loginSchema, registrationSchema } from "../constants/user-schemas";
+import { UserRole } from "@prisma/client";
 
 export const createNewUser = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const { name, email, username, password, gender, image } =
+    const { name, email, username, password, gender } =
       registrationSchema.parse(req.body);
-
-    const existedUser = await prisma.user.findUnique({
-      where: { username },
+    const existedUser = await prisma.user.findFirst({
+      where: { OR: [{ username }, { email }] },
     });
+
     if (existedUser) {
-      res.status(409).json({ message: "User already exists" });
+      res
+        .status(409)
+        .json({ message: "User with this email or username already exists" });
       return;
     }
 
@@ -26,21 +29,20 @@ export const createNewUser = async (
       data: {
         name,
         email,
-        role: "user",
         username,
         password: hashedPassword,
         gender,
-        image: image ?? null,
+        role: UserRole.USER,
       },
     });
 
     const token = createJWT(user);
-    res.json({ message: "Your account has been created successfully!", token });
+    res.status(200).json({ message: "Account created successfully!", token });
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ errors: error.errors });
     } else {
-      console.error(error);
+      console.error(error); // Log the error for debugging
       res.status(500).json({ message: "Internal server error" });
     }
   }
