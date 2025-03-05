@@ -10,6 +10,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/auth", authRouter);
-app.use("/api", protect, apiRouter);
+app.use("/api", apiRouter);
 
 export default app;

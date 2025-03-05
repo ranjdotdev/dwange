@@ -5,13 +5,7 @@ import { updateUserSchema } from "../constants/user-schemas";
 import { hashPassword } from "../modules/auth";
 
 export async function getUser(req: Request, res: Response): Promise<void> {
-  if (!req.user) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
   const userToFindID = req.params.id;
-
   try {
     const user = await prisma.user.findUnique({
       where: { id: userToFindID },
@@ -19,7 +13,6 @@ export async function getUser(req: Request, res: Response): Promise<void> {
         id: true,
         name: true,
         username: true,
-        email: true,
         status: true,
         gender: true,
         bio: true,
@@ -32,13 +25,11 @@ export async function getUser(req: Request, res: Response): Promise<void> {
         birthDate: true,
       },
     });
-
     if (!user) {
       res.status(404).json({ message: "User not found" });
       return;
     }
     res.status(200).json(user);
-    return;
   } catch (error: any) {
     res.status(500).json({
       message: "Internal server error",
@@ -51,13 +42,7 @@ export async function getCurrentUser(
   req: Request,
   res: Response
 ): Promise<void> {
-  if (!req.user) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
-  const userToFindID = req.user.id;
-
+  const userToFindID = req.user!.id;
   try {
     const user = await prisma.user.findUnique({
       where: { id: userToFindID },
@@ -84,20 +69,16 @@ export async function getCurrentUser(
         lastLoginAt: true,
       },
     });
-
     if (!user) {
       res.status(404).json({ message: "User not found" });
       return;
     }
-
     if (user.status !== "ACTIVE") {
       const { deactivatedAt, ...data } = user;
       res.status(200).json(data);
-      return;
     } else {
       res.status(200).json(user);
     }
-    return;
   } catch (error: any) {
     res.status(500).json({
       message: "Internal server error",
@@ -107,26 +88,39 @@ export async function getCurrentUser(
 }
 
 export async function updateUser(req: Request, res: Response): Promise<void> {
-  if (!req.user) {
-    res.status(401).json({ message: "Unauthorized" });
+  const userIdToUpdate = req.params.id || req.user!.id;
+  if (userIdToUpdate !== req.user!.id && req.user!.role !== "admin") {
+    res
+      .status(403)
+      .json({ message: "Forbidden: You can only update your own profile" });
     return;
   }
-
   try {
-    // Validate the incoming data (status is intentionally not allowed)
     const data = updateUserSchema.parse(req.body);
-
-    // If a password update is requested, hash it before saving.
     if (data.password) {
       data.password = await hashPassword(data.password);
     }
-
     const updatedUser = await prisma.user.update({
-      where: { id: req.user.id },
+      where: { id: userIdToUpdate },
       data,
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        email: true,
+        status: true,
+        gender: true,
+        bio: true,
+        location: true,
+        website: true,
+        imageUrl: true,
+        updatedAt: true,
+      },
     });
-
-    res.status(200).json(updatedUser);
+    res.status(200).json({
+      message: "Profile updated successfully",
+      user: updatedUser,
+    });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ message: "Invalid input", errors: error.errors });
@@ -143,32 +137,39 @@ export async function deactivateUser(
   req: Request,
   res: Response
 ): Promise<void> {
-  if (!req.user) {
-    res.status(401).json({ message: "Unauthorized" });
+  const userIdToDeactivate = req.params.id || req.user!.id;
+  if (userIdToDeactivate !== req.user!.id && req.user!.role !== "admin") {
+    res
+      .status(403)
+      .json({ message: "Forbidden: You can only deactivate your own account" });
     return;
   }
-
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    const user = await prisma.user.findUnique({
+      where: { id: userIdToDeactivate },
+    });
     if (!user) {
       res.status(404).json({ message: "User not found" });
       return;
     }
     if (user.status === "BANNED") {
-      res
-        .status(403)
-        .json({ message: "Banned users cannot deactivate their account." });
+      res.status(403).json({ message: "Banned users cannot be deactivated" });
       return;
     }
-
     const updatedUser = await prisma.user.update({
-      where: { id: req.user.id },
+      where: { id: userIdToDeactivate },
       data: {
         status: "DEACTIVATED",
         deactivatedAt: new Date(),
       },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        status: true,
+        deactivatedAt: true,
+      },
     });
-
     res.status(200).json({
       message: "Account deactivated successfully",
       user: updatedUser,
@@ -182,33 +183,39 @@ export async function deactivateUser(
 }
 
 export async function deleteUser(req: Request, res: Response): Promise<void> {
-  if (!req.user) {
-    res.status(401).json({ message: "Unauthorized" });
+  const userIdToDelete = req.params.id || req.user!.id;
+  if (userIdToDelete !== req.user!.id && req.user!.role !== "admin") {
+    res
+      .status(403)
+      .json({ message: "Forbidden: You can only delete your own account" });
     return;
   }
-
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    const user = await prisma.user.findUnique({
+      where: { id: userIdToDelete },
+    });
     if (!user) {
       res.status(404).json({ message: "User not found" });
       return;
     }
     if (user.status === "BANNED") {
-      res
-        .status(403)
-        .json({ message: "Banned users cannot delete their account." });
+      res.status(403).json({ message: "Banned users cannot be deleted" });
       return;
     }
-
-    // Mark the account for deletion by setting status to PENDING_DELETION.
     const updatedUser = await prisma.user.update({
-      where: { id: req.user.id },
+      where: { id: userIdToDelete },
       data: {
         status: "PENDING_DELETION",
         deactivatedAt: new Date(),
       },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        status: true,
+        deactivatedAt: true,
+      },
     });
-
     res.status(200).json({
       message:
         "Account deletion requested. It will be permanently deleted after 30 days if not reactivated.",
@@ -221,26 +228,3 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
     });
   }
 }
-
-// export async function cleanupDeletedUsers(): Promise<void> {
-//   try {
-//     const thresholdDate = new Date();
-//     thresholdDate.setDate(thresholdDate.getDate() - 30);
-
-//     const usersToDelete = await prisma.user.findMany({
-//       where: {
-//         status: "PENDING_DELETION",
-//         deactivatedAt: { lt: thresholdDate },
-//       },
-//     });
-
-//     for (const user of usersToDelete) {
-//       await prisma.user.delete({ where: { id: user.id } });
-//       console.log(`Permanently deleted user ${user.id}`);
-//     }
-
-//     console.log("Cleanup of deletion-requested users complete.");
-//   } catch (error: any) {
-//     console.error("Error during cleanup:", error.message);
-//   }
-// }

@@ -10,7 +10,7 @@ export const createNewUser = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { name, email, username, password, gender } =
+    const { name, email, username, password, gender, imageUrl } =
       registrationSchema.parse(req.body);
     const existedUser = await prisma.user.findFirst({
       where: { OR: [{ username }, { email }] },
@@ -33,6 +33,7 @@ export const createNewUser = async (
         password: hashedPassword,
         gender,
         role: UserRole.USER,
+        imageUrl,
       },
     });
 
@@ -42,7 +43,7 @@ export const createNewUser = async (
     if (error instanceof z.ZodError) {
       res.status(400).json({ errors: error.errors });
     } else {
-      console.error(error); // Log the error for debugging
+      console.error(error);
       res.status(500).json({ message: "Internal server error" });
     }
   }

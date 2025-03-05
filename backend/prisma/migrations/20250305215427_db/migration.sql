@@ -5,6 +5,9 @@ CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'SUSPENDED', 'DEACTIVATED', 'PENDING
 CREATE TYPE "UserRole" AS ENUM ('USER', 'MODERATOR', 'ADMIN');
 
 -- CreateEnum
+CREATE TYPE "PostType" AS ENUM ('POST', 'COMMENT', 'SHARE');
+
+-- CreateEnum
 CREATE TYPE "PostAudience" AS ENUM ('ONLY_ME', 'FRIENDS', 'MY_COMMUNITIES', 'PUBLIC');
 
 -- CreateEnum
@@ -24,7 +27,7 @@ CREATE TYPE "NotificationType" AS ENUM ('LIKE', 'COMMENT', 'REPLY', 'SHARE', 'FO
 
 -- CreateTable
 CREATE TABLE "users" (
-    "id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
     "username" VARCHAR(30) NOT NULL,
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
@@ -42,7 +45,7 @@ CREATE TABLE "users" (
     "status" "UserStatus" NOT NULL DEFAULT 'ACTIVE',
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "deactivated_at" TIMESTAMPTZ(6),
+    "deleted_at" TIMESTAMPTZ(6),
     "birth_date" DATE,
     "last_login_at" TIMESTAMPTZ(6),
 
@@ -51,9 +54,9 @@ CREATE TABLE "users" (
 
 -- CreateTable
 CREATE TABLE "followers" (
-    "id" UUID NOT NULL,
-    "follower_id" UUID NOT NULL,
-    "followed_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "follower_id" TEXT NOT NULL,
+    "followed_id" TEXT NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "followers_pkey" PRIMARY KEY ("id")
@@ -61,8 +64,8 @@ CREATE TABLE "followers" (
 
 -- CreateTable
 CREATE TABLE "sessions" (
-    "id" UUID NOT NULL,
-    "user_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
     "token" TEXT NOT NULL,
     "ip_address" VARCHAR(45),
     "user_agent" TEXT,
@@ -76,12 +79,12 @@ CREATE TABLE "sessions" (
 
 -- CreateTable
 CREATE TABLE "posts" (
-    "id" UUID NOT NULL,
-    "user_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
     "content" TEXT,
-    "parent_id" UUID,
-    "root_id" UUID,
-    "community_id" UUID,
+    "parent_id" TEXT,
+    "root_id" TEXT,
+    "community_id" TEXT,
     "audience" "PostAudience" NOT NULL DEFAULT 'PUBLIC',
     "location" VARCHAR(255),
     "likes_count" INTEGER NOT NULL DEFAULT 0,
@@ -95,14 +98,16 @@ CREATE TABLE "posts" (
     "deleted_at" TIMESTAMPTZ(6),
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "shared_post_id" TEXT,
+    "type" "PostType" NOT NULL DEFAULT 'POST',
 
     CONSTRAINT "posts_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "post_media" (
-    "id" UUID NOT NULL,
-    "post_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "post_id" TEXT NOT NULL,
     "mediaType" "MediaType" NOT NULL,
     "media_url" VARCHAR(255) NOT NULL,
     "alt_text" TEXT,
@@ -117,34 +122,36 @@ CREATE TABLE "post_media" (
 
 -- CreateTable
 CREATE TABLE "polls" (
-    "id" UUID NOT NULL,
-    "post_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "post_id" TEXT NOT NULL,
     "question" TEXT NOT NULL,
     "closes_at" TIMESTAMPTZ(6),
     "allow_multiple_choices" BOOLEAN NOT NULL DEFAULT false,
     "is_anonymous" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "polls_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "poll_options" (
-    "id" UUID NOT NULL,
-    "poll_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "poll_id" TEXT NOT NULL,
     "option_text" TEXT NOT NULL,
-    "votes_count" INTEGER NOT NULL DEFAULT 0,
+    "vote_count" INTEGER NOT NULL DEFAULT 0,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "poll_options_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "poll_votes" (
-    "id" UUID NOT NULL,
-    "poll_id" UUID NOT NULL,
-    "option_id" UUID NOT NULL,
-    "user_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "poll_id" TEXT NOT NULL,
+    "option_id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "poll_votes_pkey" PRIMARY KEY ("id")
@@ -152,31 +159,19 @@ CREATE TABLE "poll_votes" (
 
 -- CreateTable
 CREATE TABLE "likes" (
-    "id" UUID NOT NULL,
-    "user_id" UUID NOT NULL,
-    "post_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "post_id" TEXT NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "likes_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "shares" (
-    "id" UUID NOT NULL,
-    "user_id" UUID NOT NULL,
-    "post_id" UUID NOT NULL,
-    "share_comment" TEXT,
-    "share_post_id" UUID,
-    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "shares_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "bookmarks" (
-    "id" UUID NOT NULL,
-    "user_id" UUID NOT NULL,
-    "post_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "post_id" TEXT NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "bookmarks_pkey" PRIMARY KEY ("id")
@@ -184,7 +179,7 @@ CREATE TABLE "bookmarks" (
 
 -- CreateTable
 CREATE TABLE "communities" (
-    "id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
     "name" VARCHAR(100) NOT NULL,
     "slug" VARCHAR(100) NOT NULL,
     "description" TEXT,
@@ -196,16 +191,16 @@ CREATE TABLE "communities" (
     "posts_count" INTEGER NOT NULL DEFAULT 0,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "creator_id" UUID NOT NULL,
+    "creator_id" TEXT NOT NULL,
 
     CONSTRAINT "communities_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "community_members" (
-    "id" UUID NOT NULL,
-    "community_id" UUID NOT NULL,
-    "user_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "community_id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
     "role" "CommunityRole" NOT NULL DEFAULT 'MEMBER',
     "is_approved" BOOLEAN NOT NULL DEFAULT true,
     "joined_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -216,9 +211,9 @@ CREATE TABLE "community_members" (
 
 -- CreateTable
 CREATE TABLE "community_join_requests" (
-    "id" UUID NOT NULL,
-    "community_id" UUID NOT NULL,
-    "user_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "community_id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
     "message" TEXT,
     "status" "JoinRequestStatus" NOT NULL DEFAULT 'PENDING',
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -229,8 +224,8 @@ CREATE TABLE "community_join_requests" (
 
 -- CreateTable
 CREATE TABLE "scheduled_posts" (
-    "id" UUID NOT NULL,
-    "post_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "post_id" TEXT NOT NULL,
     "scheduled_time" TIMESTAMPTZ(6) NOT NULL,
     "status" "ScheduledPostStatus" NOT NULL DEFAULT 'PENDING',
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -241,12 +236,12 @@ CREATE TABLE "scheduled_posts" (
 
 -- CreateTable
 CREATE TABLE "notifications" (
-    "id" UUID NOT NULL,
-    "user_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
     "type" "NotificationType" NOT NULL,
-    "actor_id" UUID,
-    "post_id" UUID,
-    "community_id" UUID,
+    "actor_id" TEXT,
+    "post_id" TEXT,
+    "community_id" TEXT,
     "is_read" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -255,8 +250,8 @@ CREATE TABLE "notifications" (
 
 -- CreateTable
 CREATE TABLE "hashtags" (
-    "id" UUID NOT NULL,
-    "name" TEXT NOT NULL,
+    "id" TEXT NOT NULL,
+    "name" VARCHAR(50) NOT NULL,
     "post_count" INTEGER NOT NULL DEFAULT 0,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -266,9 +261,9 @@ CREATE TABLE "hashtags" (
 
 -- CreateTable
 CREATE TABLE "post_hashtags" (
-    "id" UUID NOT NULL,
-    "post_id" UUID NOT NULL,
-    "hashtag_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "post_id" TEXT NOT NULL,
+    "hashtag_id" TEXT NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "post_hashtags_pkey" PRIMARY KEY ("id")
@@ -276,8 +271,8 @@ CREATE TABLE "post_hashtags" (
 
 -- CreateTable
 CREATE TABLE "trending_topics" (
-    "id" UUID NOT NULL,
-    "hashtag_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "hashtag_id" TEXT NOT NULL,
     "rank" INTEGER NOT NULL,
     "volume" INTEGER NOT NULL,
     "region" VARCHAR(100),
@@ -289,8 +284,8 @@ CREATE TABLE "trending_topics" (
 
 -- CreateTable
 CREATE TABLE "user_verifications" (
-    "id" UUID NOT NULL,
-    "user_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
     "identity_verified" BOOLEAN NOT NULL DEFAULT false,
     "public_figure" BOOLEAN NOT NULL DEFAULT false,
     "verified_at" TIMESTAMPTZ(6),
@@ -303,10 +298,10 @@ CREATE TABLE "user_verifications" (
 
 -- CreateTable
 CREATE TABLE "user_reports" (
-    "id" UUID NOT NULL,
-    "reporter_id" UUID NOT NULL,
-    "reported_user_id" UUID NOT NULL,
-    "post_id" UUID,
+    "id" TEXT NOT NULL,
+    "reporter_id" TEXT NOT NULL,
+    "reported_user_id" TEXT NOT NULL,
+    "post_id" TEXT,
     "reason" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'PENDING',
     "reviewed_at" TIMESTAMPTZ(6),
@@ -319,8 +314,8 @@ CREATE TABLE "user_reports" (
 
 -- CreateTable
 CREATE TABLE "user_activities" (
-    "id" UUID NOT NULL,
-    "user_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
     "activityType" TEXT NOT NULL,
     "ip_address" VARCHAR(45),
     "user_agent" TEXT,
@@ -333,8 +328,8 @@ CREATE TABLE "user_activities" (
 
 -- CreateTable
 CREATE TABLE "post_analytics" (
-    "id" UUID NOT NULL,
-    "post_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "post_id" TEXT NOT NULL,
     "impressions" INTEGER NOT NULL DEFAULT 0,
     "engagement_rate" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "click_count" INTEGER NOT NULL DEFAULT 0,
@@ -347,7 +342,7 @@ CREATE TABLE "post_analytics" (
 
 -- CreateTable
 CREATE TABLE "conversations" (
-    "id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
     "is_group" BOOLEAN NOT NULL DEFAULT false,
     "name" VARCHAR(100),
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -358,9 +353,9 @@ CREATE TABLE "conversations" (
 
 -- CreateTable
 CREATE TABLE "conversation_participants" (
-    "id" UUID NOT NULL,
-    "conversation_id" UUID NOT NULL,
-    "user_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "conversation_id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
     "is_admin" BOOLEAN NOT NULL DEFAULT false,
     "last_read_at" TIMESTAMPTZ(6),
     "joined_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -370,9 +365,9 @@ CREATE TABLE "conversation_participants" (
 
 -- CreateTable
 CREATE TABLE "messages" (
-    "id" UUID NOT NULL,
-    "conversation_id" UUID NOT NULL,
-    "sender_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "conversation_id" TEXT NOT NULL,
+    "sender_id" TEXT NOT NULL,
     "content" TEXT,
     "media_url" VARCHAR(255),
     "mediaType" "MediaType",
@@ -386,9 +381,9 @@ CREATE TABLE "messages" (
 
 -- CreateTable
 CREATE TABLE "message_read_status" (
-    "id" UUID NOT NULL,
-    "message_id" UUID NOT NULL,
-    "user_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "message_id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
     "read_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "message_read_status_pkey" PRIMARY KEY ("id")
@@ -408,6 +403,9 @@ CREATE INDEX "users_email_idx" ON "users"("email");
 
 -- CreateIndex
 CREATE INDEX "users_status_idx" ON "users"("status");
+
+-- CreateIndex
+CREATE INDEX "users_created_at_idx" ON "users"("created_at");
 
 -- CreateIndex
 CREATE INDEX "followers_follower_id_idx" ON "followers"("follower_id");
@@ -431,6 +429,9 @@ CREATE INDEX "sessions_token_idx" ON "sessions"("token");
 CREATE INDEX "sessions_expires_at_idx" ON "sessions"("expires_at");
 
 -- CreateIndex
+CREATE INDEX "sessions_created_at_idx" ON "sessions"("created_at");
+
+-- CreateIndex
 CREATE INDEX "posts_user_id_idx" ON "posts"("user_id");
 
 -- CreateIndex
@@ -446,13 +447,25 @@ CREATE INDEX "posts_community_id_idx" ON "posts"("community_id");
 CREATE INDEX "posts_created_at_idx" ON "posts"("created_at");
 
 -- CreateIndex
-CREATE INDEX "posts_scheduled_for_idx" ON "posts"("scheduled_for");
+CREATE INDEX "posts_shared_post_id_idx" ON "posts"("shared_post_id");
+
+-- CreateIndex
+CREATE INDEX "posts_type_idx" ON "posts"("type");
 
 -- CreateIndex
 CREATE INDEX "post_media_post_id_idx" ON "post_media"("post_id");
 
 -- CreateIndex
+CREATE INDEX "post_media_mediaType_idx" ON "post_media"("mediaType");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "polls_post_id_key" ON "polls"("post_id");
+
+-- CreateIndex
+CREATE INDEX "polls_post_id_idx" ON "polls"("post_id");
+
+-- CreateIndex
+CREATE INDEX "polls_closes_at_idx" ON "polls"("closes_at");
 
 -- CreateIndex
 CREATE INDEX "poll_options_poll_id_idx" ON "poll_options"("poll_id");
@@ -467,10 +480,7 @@ CREATE INDEX "poll_votes_user_id_idx" ON "poll_votes"("user_id");
 CREATE INDEX "poll_votes_option_id_idx" ON "poll_votes"("option_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "poll_votes_user_id_option_id_key" ON "poll_votes"("user_id", "option_id");
-
--- CreateIndex
-CREATE UNIQUE INDEX "poll_votes_user_id_poll_id_option_id_key" ON "poll_votes"("user_id", "poll_id", "option_id");
+CREATE UNIQUE INDEX "poll_votes_user_id_poll_id_key" ON "poll_votes"("user_id", "poll_id");
 
 -- CreateIndex
 CREATE INDEX "likes_user_id_idx" ON "likes"("user_id");
@@ -479,25 +489,19 @@ CREATE INDEX "likes_user_id_idx" ON "likes"("user_id");
 CREATE INDEX "likes_post_id_idx" ON "likes"("post_id");
 
 -- CreateIndex
+CREATE INDEX "likes_created_at_idx" ON "likes"("created_at");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "likes_user_id_post_id_key" ON "likes"("user_id", "post_id");
-
--- CreateIndex
-CREATE UNIQUE INDEX "shares_share_post_id_key" ON "shares"("share_post_id");
-
--- CreateIndex
-CREATE INDEX "shares_user_id_idx" ON "shares"("user_id");
-
--- CreateIndex
-CREATE INDEX "shares_post_id_idx" ON "shares"("post_id");
-
--- CreateIndex
-CREATE INDEX "shares_share_post_id_idx" ON "shares"("share_post_id");
 
 -- CreateIndex
 CREATE INDEX "bookmarks_user_id_idx" ON "bookmarks"("user_id");
 
 -- CreateIndex
 CREATE INDEX "bookmarks_post_id_idx" ON "bookmarks"("post_id");
+
+-- CreateIndex
+CREATE INDEX "bookmarks_created_at_idx" ON "bookmarks"("created_at");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "bookmarks_user_id_post_id_key" ON "bookmarks"("user_id", "post_id");
@@ -513,6 +517,12 @@ CREATE INDEX "communities_slug_idx" ON "communities"("slug");
 
 -- CreateIndex
 CREATE INDEX "communities_is_private_idx" ON "communities"("is_private");
+
+-- CreateIndex
+CREATE INDEX "communities_creator_id_idx" ON "communities"("creator_id");
+
+-- CreateIndex
+CREATE INDEX "communities_created_at_idx" ON "communities"("created_at");
 
 -- CreateIndex
 CREATE INDEX "community_members_community_id_idx" ON "community_members"("community_id");
@@ -560,10 +570,16 @@ CREATE INDEX "notifications_created_at_idx" ON "notifications"("created_at");
 CREATE INDEX "notifications_is_read_idx" ON "notifications"("is_read");
 
 -- CreateIndex
+CREATE INDEX "notifications_type_idx" ON "notifications"("type");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "hashtags_name_key" ON "hashtags"("name");
 
 -- CreateIndex
 CREATE INDEX "hashtags_name_idx" ON "hashtags"("name");
+
+-- CreateIndex
+CREATE INDEX "hashtags_post_count_idx" ON "hashtags"("post_count");
 
 -- CreateIndex
 CREATE INDEX "post_hashtags_post_id_idx" ON "post_hashtags"("post_id");
@@ -617,6 +633,9 @@ CREATE UNIQUE INDEX "post_analytics_post_id_key" ON "post_analytics"("post_id");
 CREATE INDEX "post_analytics_post_id_idx" ON "post_analytics"("post_id");
 
 -- CreateIndex
+CREATE INDEX "conversations_created_at_idx" ON "conversations"("created_at");
+
+-- CreateIndex
 CREATE INDEX "conversation_participants_conversation_id_idx" ON "conversation_participants"("conversation_id");
 
 -- CreateIndex
@@ -665,6 +684,9 @@ ALTER TABLE "posts" ADD CONSTRAINT "posts_root_id_fkey" FOREIGN KEY ("root_id") 
 ALTER TABLE "posts" ADD CONSTRAINT "posts_community_id_fkey" FOREIGN KEY ("community_id") REFERENCES "communities"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "posts" ADD CONSTRAINT "posts_shared_post_id_fkey" FOREIGN KEY ("shared_post_id") REFERENCES "posts"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "post_media" ADD CONSTRAINT "post_media_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "posts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -687,15 +709,6 @@ ALTER TABLE "likes" ADD CONSTRAINT "likes_user_id_fkey" FOREIGN KEY ("user_id") 
 
 -- AddForeignKey
 ALTER TABLE "likes" ADD CONSTRAINT "likes_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "posts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "shares" ADD CONSTRAINT "shares_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "shares" ADD CONSTRAINT "shares_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "posts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "shares" ADD CONSTRAINT "shares_share_post_id_fkey" FOREIGN KEY ("share_post_id") REFERENCES "posts"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "bookmarks" ADD CONSTRAINT "bookmarks_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -734,16 +747,46 @@ ALTER TABLE "notifications" ADD CONSTRAINT "notifications_post_id_fkey" FOREIGN 
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_community_id_fkey" FOREIGN KEY ("community_id") REFERENCES "communities"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "post_hashtags" ADD CONSTRAINT "post_hashtags_hashtag_id_fkey" FOREIGN KEY ("hashtag_id") REFERENCES "hashtags"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "post_hashtags" ADD CONSTRAINT "post_hashtags_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "posts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "post_hashtags" ADD CONSTRAINT "post_hashtags_hashtag_id_fkey" FOREIGN KEY ("hashtag_id") REFERENCES "hashtags"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "trending_topics" ADD CONSTRAINT "trending_topics_hashtag_id_fkey" FOREIGN KEY ("hashtag_id") REFERENCES "hashtags"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "user_verifications" ADD CONSTRAINT "user_verifications_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_reports" ADD CONSTRAINT "user_reports_reporter_id_fkey" FOREIGN KEY ("reporter_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_reports" ADD CONSTRAINT "user_reports_reported_user_id_fkey" FOREIGN KEY ("reported_user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_reports" ADD CONSTRAINT "user_reports_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "posts"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_activities" ADD CONSTRAINT "user_activities_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "post_analytics" ADD CONSTRAINT "post_analytics_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "posts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "conversation_participants" ADD CONSTRAINT "conversation_participants_conversation_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "conversations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "conversation_participants" ADD CONSTRAINT "conversation_participants_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "messages" ADD CONSTRAINT "messages_conversation_id_fkey" FOREIGN KEY ("conversation_id") REFERENCES "conversations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "messages" ADD CONSTRAINT "messages_sender_id_fkey" FOREIGN KEY ("sender_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "message_read_status" ADD CONSTRAINT "message_read_status_message_id_fkey" FOREIGN KEY ("message_id") REFERENCES "messages"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "message_read_status" ADD CONSTRAINT "message_read_status_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

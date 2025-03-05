@@ -31,6 +31,7 @@ export function createJWT(user: User): string {
     { expiresIn: "7d" }
   );
 }
+
 export function protect(req: Request, res: Response, next: NextFunction): void {
   const bearer = req.headers.authorization;
 
@@ -55,8 +56,7 @@ export function protect(req: Request, res: Response, next: NextFunction): void {
 
   try {
     const payload = jwt.verify(token, secret) as UserPayload;
-    req.user = payload;
-
+    req.user = payload; // req.user.id is a string
     console.log("Authenticated user:", payload);
     next();
   } catch (error) {
