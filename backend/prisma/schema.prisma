@@ -138,7 +138,7 @@ model Follower {
   follower     User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
   followed     User @relation("UserFollowers", fields: [followedId], references: [id], onDelete: Cascade)
 
-  @@unique([followerId, followedId], name: "unique_follower_relationship")
+  @@unique([followerId, followedId], name: "followerId_followedId")
   @@index([followerId])
   @@index([followedId])
   @@map("followers")
