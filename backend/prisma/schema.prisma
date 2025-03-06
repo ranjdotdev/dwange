@@ -76,31 +76,33 @@ enum NotificationType {
   JOIN_APPROVED
 }
 
-
 // USER MANAGEMENT MODELS
 
 model User {
-  id              String    @id @default(uuid())
-  username        String    @unique @db.VarChar(30)
-  email           String    @unique
-  password        String    @map("password")
-  name            String    @db.VarChar(100)
-  bio             String?   @db.Text
-  location        String?   @db.VarChar(100)
-  website         String?   @db.VarChar(255)
-  imageUrl        String?   @map("image_url") @db.VarChar(255)
-  gender          String?   @db.VarChar(6)
-  role            UserRole  @default(USER)
-  followingCount  Int       @default(0) @map("following_count")
-  followersCount  Int       @default(0) @map("followers_count")
-  postsCount      Int       @default(0) @map("posts_count")
-  emailVerified   Boolean   @default(false) @map("email_verified")
-  status          UserStatus @default(ACTIVE)
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
-  birthDate       DateTime? @map("birth_date") @db.Date
-  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(6)
+  id             String     @id @default(uuid())
+  username       String     @unique @db.VarChar(30)
+  email          String     @unique
+  password       String     @map("password")
+  name           String     @db.VarChar(100)
+  bio            String?    @db.Text
+  location       String?    @db.VarChar(100)
+  website        String?    @db.VarChar(255)
+  imageUrl       String?    @map("image_url") @db.VarChar(255)
+  gender         String?    @db.VarChar(6)
+  role           UserRole   @default(USER)
+  followingCount Int        @default(0) @map("following_count")
+  followersCount Int        @default(0) @map("followers_count")
+  postsCount     Int        @default(0) @map("posts_count")
+  emailVerified  Boolean    @default(false) @map("email_verified")
+  status         UserStatus @default(ACTIVE)
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deactivatedAt  DateTime   @default(now()) @map("deactivated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?  @map("deleted_at") @db.Timestamptz(6)
+  birthDate      DateTime?  @map("birth_date") @db.Date
+  lastLoginAt    DateTime?  @map("last_login_at") @db.Timestamptz(6)
+  blockingCount  Int        @default(0) @map("blocking_count")
+  blockersCount  Int        @default(0) @map("blockers_count")
 
   posts                   Post[]
   likes                   Like[]
@@ -121,6 +123,8 @@ model User {
   ConversationParticipant ConversationParticipant[]
   Message                 Message[]
   MessageReadStatus       MessageReadStatus[]
+  blockedBy               Blocker[]                 @relation("UserBlockers")
+  blocking                Blocker[]                 @relation("UserBlocking")
 
   @@index([username])
   @@index([email])
@@ -130,18 +134,33 @@ model User {
 }
 
 model Follower {
-  id           String    @id @default(uuid())
-  followerId   String    @map("follower_id")
-  followedId   String    @map("followed_id")
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  id         String   @id @default(uuid())
+  followerId String   @map("follower_id")
+  followedId String   @map("followed_id")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  follower     User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
-  followed     User @relation("UserFollowers", fields: [followedId], references: [id], onDelete: Cascade)
+  follower User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  followed User @relation("UserFollowers", fields: [followedId], references: [id], onDelete: Cascade)
 
   @@unique([followerId, followedId], name: "followerId_followedId")
   @@index([followerId])
   @@index([followedId])
   @@map("followers")
+}
+
+model Blocker {
+  id        String   @id @default(uuid())
+  blockerId String   @map("blocker_id")
+  blockedId String   @map("blocked_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  blocker User @relation("UserBlocking", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("UserBlockers", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId], name: "blockerId_blockedId")
+  @@index([blockerId])
+  @@index([blockedId])
+  @@map("blockers")
 }
 
 model Session {
@@ -155,7 +174,7 @@ model Session {
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   lastUsedAt DateTime @default(now()) @map("last_used_at") @db.Timestamptz(6)
 
-  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([token])
@@ -164,40 +183,39 @@ model Session {
   @@map("sessions")
 }
 
-
 // POSTS & CONTENT MODELS
 
 model Post {
-  id            String      @id @default(uuid())
-  userId        String      @map("user_id")
-  content       String?     @db.Text
-  parentId      String?     @map("parent_id")
-  rootId        String?     @map("root_id")
-  communityId   String?     @map("community_id")
+  id            String       @id @default(uuid())
+  userId        String       @map("user_id")
+  content       String?      @db.Text
+  parentId      String?      @map("parent_id")
+  rootId        String?      @map("root_id")
+  communityId   String?      @map("community_id")
   audience      PostAudience @default(PUBLIC)
-  location      String?     @db.VarChar(255)
-  likesCount    Int         @default(0) @map("likes_count")
-  commentsCount Int         @default(0) @map("comments_count")
-  sharesCount   Int         @default(0) @map("shares_count")
-  hasPoll       Boolean     @default(false) @map("has_poll")
-  isEdited      Boolean     @default(false) @map("is_edited")
-  isPinned      Boolean     @default(false) @map("is_pinned")
-  scheduledFor  DateTime?   @map("scheduled_for") @db.Timestamptz(6)
-  publishedAt   DateTime?   @map("published_at") @db.Timestamptz(6)
-  deletedAt     DateTime?   @map("deleted_at") @db.Timestamptz(6)
-  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  sharedPostId  String?     @map("shared_post_id")
-  type          PostType    @default(POST)
+  location      String?      @db.VarChar(255)
+  likesCount    Int          @default(0) @map("likes_count")
+  commentsCount Int          @default(0) @map("comments_count")
+  sharesCount   Int          @default(0) @map("shares_count")
+  hasPoll       Boolean      @default(false) @map("has_poll")
+  isEdited      Boolean      @default(false) @map("is_edited")
+  isPinned      Boolean      @default(false) @map("is_pinned")
+  scheduledFor  DateTime?    @map("scheduled_for") @db.Timestamptz(6)
+  publishedAt   DateTime?    @map("published_at") @db.Timestamptz(6)
+  deletedAt     DateTime?    @map("deleted_at") @db.Timestamptz(6)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sharedPostId  String?      @map("shared_post_id")
+  type          PostType     @default(POST)
 
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parent        Post?       @relation("PostToReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  root          Post?       @relation("PostToThread", fields: [rootId], references: [id], onDelete: Cascade)
-  community     Community?  @relation(fields: [communityId], references: [id], onDelete: SetNull)
-  replies       Post[]      @relation("PostToReplies")
-  threadPosts   Post[]      @relation("PostToThread")
-  sharedPost    Post?       @relation("SharedPosts", fields: [sharedPostId], references: [id], onDelete: SetNull)
-  shares        Post[]      @relation("SharedPosts")
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent        Post?          @relation("PostToReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  root          Post?          @relation("PostToThread", fields: [rootId], references: [id], onDelete: Cascade)
+  community     Community?     @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  replies       Post[]         @relation("PostToReplies")
+  threadPosts   Post[]         @relation("PostToThread")
+  sharedPost    Post?          @relation("SharedPosts", fields: [sharedPostId], references: [id], onDelete: SetNull)
+  shares        Post[]         @relation("SharedPosts")
   media         PostMedia[]
   likes         Like[]
   bookmarks     Bookmark[]
@@ -230,7 +248,7 @@ model PostMedia {
   thumbnailUrl String?   @map("thumbnail_url") @db.VarChar(255)
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  post         Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@index([postId])
   @@index([mediaType])
@@ -289,7 +307,6 @@ model PollVote {
   @@map("poll_votes")
 }
 
-
 // INTERACTION MODELS
 
 model Like {
@@ -298,8 +315,8 @@ model Like {
   postId    String   @map("post_id")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@unique([userId, postId], name: "unique_like")
   @@index([userId])
@@ -314,8 +331,8 @@ model Bookmark {
   postId    String   @map("post_id")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@unique([userId, postId], name: "unique_bookmark")
   @@index([userId])
@@ -324,23 +341,22 @@ model Bookmark {
   @@map("bookmarks")
 }
 
-
 // COMMUNITY & MEMBERSHIP MODELS
 
 model Community {
-  id           String    @id @default(uuid())
-  name         String    @db.VarChar(100)
-  slug         String    @unique @db.VarChar(100)
-  description  String?   @db.Text
-  imageUrl     String?   @map("image_url") @db.VarChar(255)
-  bannerUrl    String?   @map("banner_url") @db.VarChar(255)
-  isPrivate    Boolean   @default(false) @map("is_private")
-  isVerified   Boolean   @default(false) @map("is_verified")
-  membersCount Int       @default(0) @map("members_count")
-  postsCount   Int       @default(0) @map("posts_count")
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  creatorId    String    @map("creator_id")
+  id           String   @id @default(uuid())
+  name         String   @db.VarChar(100)
+  slug         String   @unique @db.VarChar(100)
+  description  String?  @db.Text
+  imageUrl     String?  @map("image_url") @db.VarChar(255)
+  bannerUrl    String?  @map("banner_url") @db.VarChar(255)
+  isPrivate    Boolean  @default(false) @map("is_private")
+  isVerified   Boolean  @default(false) @map("is_verified")
+  membersCount Int      @default(0) @map("members_count")
+  postsCount   Int      @default(0) @map("posts_count")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  creatorId    String   @map("creator_id")
 
   creator       User                   @relation(fields: [creatorId], references: [id], onDelete: Restrict)
   members       CommunityMember[]
@@ -394,16 +410,15 @@ model CommunityJoinRequest {
   @@map("community_join_requests")
 }
 
-
 // SCHEDULED POSTS MODEL
 
 model ScheduledPost {
-  id            String    @id @default(uuid())
-  postId        String    @unique @map("post_id")
-  scheduledTime DateTime  @map("scheduled_time") @db.Timestamptz(6)
+  id            String              @id @default(uuid())
+  postId        String              @unique @map("post_id")
+  scheduledTime DateTime            @map("scheduled_time") @db.Timestamptz(6)
   status        ScheduledPostStatus @default(PENDING)
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
@@ -413,18 +428,17 @@ model ScheduledPost {
   @@map("scheduled_posts")
 }
 
-
 // NOTIFICATIONS MODEL
 
 model Notification {
-  id          String    @id @default(uuid())
-  userId      String    @map("user_id")
+  id          String           @id @default(uuid())
+  userId      String           @map("user_id")
   type        NotificationType
-  actorId     String?   @map("actor_id")
-  postId      String?   @map("post_id")
-  communityId String?   @map("community_id")
-  isRead      Boolean   @default(false) @map("is_read")
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  actorId     String?          @map("actor_id")
+  postId      String?          @map("post_id")
+  communityId String?          @map("community_id")
+  isRead      Boolean          @default(false) @map("is_read")
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
 
   user      User       @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
   actor     User?      @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
@@ -437,7 +451,6 @@ model Notification {
   @@index([type])
   @@map("notifications")
 }
-
 
 // HASHTAGS & TRENDING TOPICS
 
@@ -488,7 +501,6 @@ model TrendingTopic {
   @@map("trending_topics")
 }
 
-
 // USER VERIFICATION & SAFETY
 
 model UserVerification {
@@ -530,20 +542,19 @@ model UserReport {
   @@map("user_reports")
 }
 
-
 // ANALYTICS & METRICS
 
 model UserActivity {
-  id           String    @id @default(uuid())
-  userId       String    @map("user_id")
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
   activityType String
-  ipAddress    String?   @map("ip_address") @db.VarChar(45)
-  userAgent    String?   @map("user_agent") @db.Text
-  location     String?   @db.VarChar(100)
-  deviceType   String?   @map("device_type") @db.VarChar(50)
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  userAgent    String?  @map("user_agent") @db.Text
+  location     String?  @db.VarChar(100)
+  deviceType   String?  @map("device_type") @db.VarChar(50)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([activityType])
@@ -561,12 +572,11 @@ model PostAnalytics {
   saveCount      Int      @default(0) @map("save_count")
   updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  post           Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@index([postId])
   @@map("post_analytics")
 }
-
 
 // DIRECT MESSAGING
 
@@ -613,9 +623,9 @@ model Message {
   createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  conversation   Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender         User                @relation(fields: [senderId], references: [id], onDelete: Cascade)
-  readStatus     MessageReadStatus[]
+  conversation Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User                @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  readStatus   MessageReadStatus[]
 
   @@index([conversationId])
   @@index([senderId])
@@ -629,8 +639,8 @@ model MessageReadStatus {
   userId    String   @map("user_id")
   readAt    DateTime @default(now()) @map("read_at") @db.Timestamptz(6)
 
-  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, userId], name: "unique_message_read_status")
   @@index([messageId])

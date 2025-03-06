@@ -2,6 +2,7 @@ import { apiRouter as api } from "../routes/routers";
 import * as user from "@/src/controllers/user";
 import * as post from "@/src/controllers/post";
 import * as follow from "@/src/controllers/follow";
+import * as block from "@/src/controllers/block";
 import { protect } from "@/src/modules/auth";
 
 api.get("/users/me", protect, user.getCurrentUser);
@@ -22,3 +23,7 @@ api.delete("/posts/:id", protect, post.deletePost);
 api.get("/follow/:id", protect, follow.getFollowingStatus);
 api.post("/follow/:id", protect, follow.follow);
 api.delete("/follow/:id", protect, follow.unfollow);
+
+api.get("/block/:id", protect, block.getBlockingStatus);
+api.post("/block/:id", protect, block.block);
+api.delete("/block/:id", protect, block.unblock);

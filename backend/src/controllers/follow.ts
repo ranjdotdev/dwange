@@ -19,6 +19,19 @@ export const follow = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    const isBlocked = await prisma.blocker.findUnique({
+      where: {
+        blockerId_blockedId: {
+          blockerId: followedId,
+          blockedId: followerId,
+        },
+      },
+    });
+    if (!isBlocked) {
+      res.status(403).json({ message: "Cannot follow, the user blocked you" });
+      return;
+    }
+
     const alreadyFollowing = await prisma.follower.findUnique({
       where: {
         followerId_followedId: {
