@@ -3,6 +3,8 @@ import app from "./server";
 
 dotenv.config();
 
-app.listen(3002, () => {
-  console.log(`Listening on "http://localhost:3002"`);
+const port = Number(process.env.PORT || 3002);
+
+app.listen(port, () => {
+  console.log(`Listening on "http://localhost:${port}"`);
 });

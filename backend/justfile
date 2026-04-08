@@ -1,0 +1,55 @@
+set dotenv-load
+
+_db_url := env("DATABASE_URL", "postgresql://dwange:dwange_dev@localhost:5433/dwange")
+
+default:
+    just --list
+
+# Start PostgreSQL
+up:
+    docker compose up -d
+    echo "Waiting for PostgreSQL..."
+    sleep 3
+    just health
+
+# Stop PostgreSQL
+down:
+    docker compose down
+
+# Restart PostgreSQL
+restart: down up
+
+# Check database health
+health:
+    echo "PostgreSQL:" && docker exec dwange-postgres pg_isready -U dwange || echo "Not ready"
+
+# View docker logs
+logs:
+    docker compose logs -f
+
+# Open database CLI
+db-cli:
+    docker exec -it dwange-postgres psql -U dwange -d dwange
+
+# Prisma commands
+prisma-generate:
+    npx prisma generate
+
+prisma-migrate-dev name:
+    DATABASE_URL="{{_db_url}}" npx prisma migrate dev --name {{name}}
+
+prisma-migrate-deploy:
+    DATABASE_URL="{{_db_url}}" npx prisma migrate deploy
+
+prisma-studio:
+    npx prisma studio
+
+# App commands
+dev:
+    npm run dev
+
+build:
+    npm run build
+
+clean:
+    npm run clean
